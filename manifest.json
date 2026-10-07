@@ -1,0 +1,17 @@
+{
+  "name": "Gestão de Triagem e Pistas",
+  "short_name": "Triagem",
+  "description": "Aplicação de registo de referências, estado das pistas e notas",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0e4c85",
+  "theme_color": "#0e4c85",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3143/3143498.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
