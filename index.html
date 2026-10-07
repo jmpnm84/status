@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Triagem e Pistas</title>
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="bg-indigo-600 text-white shadow-md py-4 px-6">
+        <div class="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div>
+                <h1 class="text-xl font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-boxes-stacked"></i> Gestão de Triagem <span class="text-xs font-normal bg-indigo-500 px-2 py-0.5 rounded-full text-indigo-100">v0.0.1</span>
+                </h1>
+                <p class="text-xs text-indigo-200">Registo de Referências, Estado das Pistas e Notas</p>
+            </div>
+            <div class="flex gap-2 w-full sm:w-auto">
+                <button onclick="addItem()" class="flex-1 sm:flex-none bg-indigo-500 hover:bg-indigo-400 text-white text-sm px-4 py-2 rounded-lg font-medium shadow transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-plus"></i> Adicionar
+                </button>
+                <button onclick="shareWhatsApp()" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg font-medium shadow transition flex items-center justify-center gap-2">
+                    <i class="fa-brands fa-whatsapp text-lg"></i> Enviar WhatsApp
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl w-full mx-auto p-4 sm:p-6 flex-grow">
+        <div id="items-container" class="space-y-4">
+            <!-- Items rendered dynamically via JavaScript -->
+        </div>
+        <div id="empty-state" class="text-center py-12 text-gray-400 hidden">
+            <i class="fa-solid fa-clipboard-list text-4xl mb-3"></i>
+            <p class="text-sm font-medium">Nenhum registo adicionado. Clique em "Adicionar" para começar.</p>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 py-3 text-center text-xs text-gray-500">
+        Painel de controlo interativo &bull; Compatível com partilha direta no WhatsApp &bull; v0.0.1
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Start with an empty list
+        let data = [];
+
+        function render() {
+            const container = document.getElementById('items-container');
+            const emptyState = document.getElementById('empty-state');
+            container.innerHTML = '';
+
+            if (data.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            data.forEach((item, itemIndex) => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 relative group";
+
+                let pistasHTML = '';
+                if (item.pistas && item.pistas.length > 0) {
+                    pistasHTML = `<div class="mt-3 space-y-2 border-t border-gray-100 pt-3">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-gray-400">Pistas / Localizações</div>`;
+                    
+                    item.pistas.forEach((p, pIndex) => {
+                        const isTriado = p.status === 'triados' || p.status === 'triadas';
+                        pistasHTML += `
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-50 p-2.5 rounded-lg gap-2 border border-gray-100">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-mono bg-white px-2 py-1 rounded border border-gray-200 text-xs font-bold text-indigo-600">${p.pista}</span>
+                                    <span class="text-sm font-medium text-gray-700">${p.quantidade} ${p.unidade || 'contentores'}</span>
+                                </div>
+                                <div class="flex items-center gap-2 justify-between sm:justify-end">
+                                    <select onchange="updateStatus(${itemIndex}, ${pIndex}, this.value)" class="text-xs font-medium px-2.5 py-1.5 rounded border ${isTriado ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'} focus:outline-none">
+                                        <option value="por_triar" ${!isTriado ? 'selected' : ''}>🚫 Por triar</option>
+                                        <option value="triados" ${isTriado ? 'selected' : ''}>✅ Triados(as)</option>
+                                    </select>
+                                    <button onclick="removePista(${itemIndex}, ${pIndex})" class="text-gray-400 hover:text-red-500 p-1" title="Remover Pista">
+                                        <i class="fa-solid fa-trash-can text-xs"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    pistasHTML += `</div>`;
+                }
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start gap-3">
+                        <div class="flex-grow">
+                            <label class="text-xs font-bold uppercase tracking-wider text-indigo-500">Referência</label>
+                            <input type="text" value="${item.referencia}" onchange="updateReferencia(${itemIndex}, this.value)" placeholder="Indique a referência..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-indigo-500 focus:outline-none py-1 bg-transparent text-base">
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <button onclick="addPista(${itemIndex})" class="text-xs bg-gray-100 hover:bg-indigo-50 text-gray-600 hover:text-indigo-600 px-2.5 py-1.5 rounded-md font-medium transition flex items-center gap-1">
+                                <i class="fa-solid fa-location-dot"></i> + Pista
+                            </button>
+                            <button onclick="removeItem(${itemIndex})" class="text-gray-400 hover:text-red-500 p-1.5" title="Remover Registo">
+                                <i class="fa-solid fa-xmark text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    ${pistasHTML}
+                    
+                    <div class="mt-3">
+                        <label class="text-xs font-semibold uppercase tracking-wider text-gray-400 block mb-1">Notas adicionais</label>
+                        <input type="text" value="${item.notas || ''}" onchange="updateNotas(${itemIndex}, this.value)" placeholder="Adicionar comentário ou nota..." class="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-500">
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function updateReferencia(index, value) {
+            data[index].referencia = value;
+        }
+
+        function updateNotas(index, value) {
+            data[index].notas = value;
+        }
+
+        function updateStatus(itemIdx, pistaIdx, status) {
+            data[itemIdx].pistas[pistaIdx].status = status;
+            render();
+        }
+
+        function addPista(itemIdx) {
+            const pistaNome = prompt("Indique a pista (ex: F28):");
+            if (!pistaNome) return;
+            const qtdStr = prompt("Indique a quantidade:", "10");
+            const qtd = parseInt(qtdStr) || 0;
+            
+            const unidadeChoice = prompt("Escolha a unidade:\n1 - contentores\n2 - paletes", "1");
+            let unidade = "contentores";
+            if (unidadeChoice === "2" || unidadeChoice?.toLowerCase().includes("palete")) {
+                unidade = "paletes";
+            }
+
+            const statusChoice = prompt("Estado da pista:\n1 - Por triar 🚫\n2 - Triados(as) ✅", "1");
+            let status = "por_triar";
+            if (statusChoice === "2" || statusChoice?.toLowerCase().includes("triado") || statusChoice?.toLowerCase().includes("triada")) {
+                status = unidade === "paletes" ? "triadas" : "triados";
+            }
+
+            if (!data[itemIdx].pistas) {
+                data[itemIdx].pistas = [];
+            }
+            data[itemIdx].pistas.push({
+                pista: pistaNome.toUpperCase(),
+                quantidade: qtd,
+                unidade: unidade,
+                status: status
+            });
+            render();
+        }
+
+        function removePista(itemIdx, pistaIdx) {
+            data[itemIdx].pistas.splice(pistaIdx, 1);
+            render();
+        }
+
+        function removeItem(itemIdx) {
+            if (confirm("Deseja eliminar este registo por completo?")) {
+                data.splice(itemIdx, 1);
+                render();
+            }
+        }
+
+        function addItem() {
+            const ref = prompt("Indique a Referência:");
+            if (!ref) return;
+
+            const pistasList = [];
+            const pistaNome = prompt("Indique a pista (ex: F28):");
+            if (pistaNome) {
+                const qtdStr = prompt("Indique a quantidade:", "10");
+                const qtd = parseInt(qtdStr) || 0;
+                
+                const unidadeChoice = prompt("Escolha a unidade:\n1 - contentores\n2 - paletes", "1");
+                let unidade = "contentores";
+                if (unidadeChoice === "2" || unidadeChoice?.toLowerCase().includes("palete")) {
+                    unidade = "paletes";
+                }
+
+                const statusChoice = prompt("Estado da pista:\n1 - Por triar 🚫\n2 - Triados(as) ✅", "1");
+                let status = "por_triar";
+                if (statusChoice === "2" || statusChoice?.toLowerCase().includes("triado") || statusChoice?.toLowerCase().includes("triada")) {
+                    status = unidade === "paletes" ? "triadas" : "triados";
+                }
+
+                pistasList.push({
+                    pista: pistaNome.toUpperCase(),
+                    quantidade: qtd,
+                    unidade: unidade,
+                    status: status
+                });
+            }
+
+            const notas = prompt("Indique notas adicionais (opcional):", "") || "";
+
+            data.push({
+                id: Date.now(),
+                referencia: ref,
+                pistas: pistasList,
+                notas: notas
+            });
+            render();
+        }
+
+        function shareWhatsApp() {
+            if (data.length === 0) {
+                alert("Não existem dados para partilhar.");
+                return;
+            }
+
+            let text = "*ESTADO DE TRIAGEM E PISTAS*\n\n";
+            
+            data.forEach((item) => {
+                text += `🔹 *${item.referencia}*`;
+                if (item.notas && item.notas.trim() !== "") {
+                    text += ` - _${item.notas}_`;
+                }
+                text += `\n`;
+
+                if (item.pistas && item.pistas.length > 0) {
+                    item.pistas.forEach(p => {
+                        const icon = (p.status === 'triados' || p.status === 'triadas') ? '✅' : '🚫';
+                        const statusText = (p.status === 'triados' || p.status === 'triadas') ? 'triados(as)' : 'por triar';
+                        text += `    * ${p.pista} _ ${p.quantidade} ${p.unidade} ${statusText} ${icon}\n`;
+                    });
+                }
+                text += `\n`;
+            });
+
+            const encoded = encodeURIComponent(text.trim());
+            window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
+        }
+
+        // Initial render on load
+        render();
+    </script>
+</body>
+</html>
