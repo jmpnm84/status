@@ -26,6 +26,9 @@
                 <button onclick="shareWhatsApp()" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg font-medium shadow transition flex items-center justify-center gap-2">
                     <i class="fa-brands fa-whatsapp text-lg"></i> Enviar WhatsApp
                 </button>
+                <button onclick="openTutorial()" class="bg-indigo-500 hover:bg-indigo-400 text-white w-10 h-10 rounded-lg font-bold transition flex items-center justify-center shadow" title="Tutorial / Ajuda">
+                    <i class="fa-solid fa-question text-sm"></i>
+                </button>
             </div>
         </div>
     </header>
@@ -40,6 +43,56 @@
             <p class="text-sm font-medium">Nenhum registo adicionado. Clique em "Adicionar" para começar.</p>
         </div>
     </main>
+
+    <!-- Tutorial Modal -->
+    <div id="tutorial-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl relative animate-in fade-in zoom-in duration-200">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-3">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-info text-indigo-600"></i> Como Utilizar a Aplicação
+                </h3>
+                <button onclick="closeTutorial()" class="text-gray-400 hover:text-gray-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4 text-sm text-gray-600 max-h-[60vh] overflow-y-auto pr-2">
+                <div class="flex gap-3 items-start">
+                    <div class="bg-indigo-50 text-indigo-600 font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">1</div>
+                    <div>
+                        <strong class="text-gray-800">Adicionar Registo:</strong> Clique no botão <span class="bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-medium text-xs">Adicionar</span> no topo. Irá preencher sequencialmente a Referência, Pista, Quantidade, Unidade, Estado e Notas adicionais.
+                    </div>
+                </div>
+
+                <div class="flex gap-3 items-start">
+                    <div class="bg-indigo-50 text-indigo-600 font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">2</div>
+                    <div>
+                        <strong class="text-gray-800">Gerir Pistas:</strong> Pode adicionar mais pistas a um registo existente clicando no botão <span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-medium text-xs"><i class="fa-solid fa-location-dot"></i> + Pista</span> no próprio cartão.
+                    </div>
+                </div>
+
+                <div class="flex gap-3 items-start">
+                    <div class="bg-indigo-50 text-indigo-600 font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">3</div>
+                    <div>
+                        <strong class="text-gray-800">Alterar Estados:</strong> Diretamente no cartão, pode alterar o estado de cada pista (Por triar ou Triados(as)) através da caixa seletora.
+                    </div>
+                </div>
+
+                <div class="flex gap-3 items-start">
+                    <div class="bg-indigo-50 text-indigo-600 font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">4</div>
+                    <div>
+                        <strong class="text-gray-800">Enviar para o WhatsApp:</strong> Quando terminar, clique em <span class="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium text-xs">Enviar WhatsApp</span> para formatar e partilhar a lista instantaneamente.
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-3 border-t border-gray-100 flex justify-end">
+                <button onclick="closeTutorial()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium transition">
+                    Compreendido
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Footer -->
     <footer class="bg-white border-t border-gray-200 py-3 text-center text-xs text-gray-500">
@@ -216,6 +269,14 @@
                 notas: notas
             });
             render();
+        }
+
+        function openTutorial() {
+            document.getElementById('tutorial-modal').classList.remove('hidden');
+        }
+
+        function closeTutorial() {
+            document.getElementById('tutorial-modal').classList.add('hidden');
         }
 
         function shareWhatsApp() {
