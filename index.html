@@ -5,7 +5,654 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestão de Triagem e Pistas</title>
     
+    <!-- PWA Meta Tags --><!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Triagem e Pistas</title>
+    
     <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0e4c85">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Triagem">
+
+    <!-- Tailwind CSS for modern styling -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        .bg-custom-header {
+            background-color: #0e4c85;
+        }
+        /* Estilos personalizados para o Modal de Adicionar com Dropdown/Sugestões */
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="bg-custom-header text-white shadow-md py-4 px-6">
+        <div class="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div>
+                <h1 class="text-xl font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-boxes-stacked"></i> Gestão de Triagem <span class="text-xs font-normal bg-white/20 px-2 py-0.5 rounded-full text-indigo-100">v2.1.0</span>
+                </h1>
+                <p class="text-xs text-indigo-200">Registo com IndexedDB &bull; Auto-preenchimento e Dropdown de Referências</p>
+            </div>
+            <div class="flex gap-2 w-full sm:w-auto">
+                <button onclick="openAddModal()" class="flex-1 sm:flex-none bg-indigo-500 hover:bg-indigo-400 text-white text-sm px-4 py-2 rounded-lg font-medium shadow transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-plus"></i> Adicionar
+                </button>
+                <button onclick="shareWhatsApp()" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-4 py-2 rounded-lg font-medium shadow transition flex items-center justify-center gap-2">
+                    <i class="fa-brands fa-whatsapp text-lg"></i> Enviar WhatsApp
+                </button>
+                <button onclick="openTutorial()" class="bg-white/20 hover:bg-white/30 text-white w-10 h-10 rounded-lg font-bold transition flex items-center justify-center shadow" title="Tutorial / Ajuda">
+                    <i class="fa-solid fa-question text-sm"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl w-full mx-auto p-4 sm:p-6 flex-grow">
+        <div id="items-container" class="space-y-4">
+            <!-- Items rendered dynamically via JavaScript -->
+        </div>
+        <div id="empty-state" class="text-center py-12 text-gray-400 hidden">
+            <i class="fa-solid fa-clipboard-list text-4xl mb-3"></i>
+            <p class="text-sm font-medium">Nenhum registo adicionado. Clique em "Adicionar" para começar.</p>
+        </div>
+    </main>
+
+    <!-- Modal Personalizado para Adicionar Registo (Com Dropdown de Referências) -->
+    <div id="add-modal" class="fixed inset-0 modal-overlay flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl relative animate-in fade-in zoom-in duration-200">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-3">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-plus-circle text-[#0e4c85]"></i> Adicionar Novo Registo
+                </h3>
+                <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <form id="add-form" onsubmit="handleFormSubmit(event)" class="space-y-4 text-sm">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-[#0e4c85] mb-1">Referência</label>
+                    <input type="text" id="modal-ref" list="referencias-list" placeholder="Escreva ou selecione a referência..." required class="w-full font-semibold text-gray-800 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-[#0e4c85]" oninput="onRefInput(this.value)">
+                    <datalist id="referencias-list">
+                        <!-- Preenchido dinamicamente via JS com as referências existentes -->
+                    </datalist>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-[#0e4c85] mb-1">Nome da Peça</label>
+                    <input type="text" id="modal-peca" placeholder="Nome da peça associada..." class="w-full font-semibold text-gray-800 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-[#0e4c85]">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-[#0e4c85] mb-1">Pista (ex: F28)</label>
+                        <input type="text" id="modal-pista" placeholder="Pista..." class="w-full font-semibold text-gray-800 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-[#0e4c85]">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-[#0e4c85] mb-1">Quantidade</label>
+                        <input type="number" id="modal-qtd" value="10" min="1" class="w-full font-semibold text-gray-800 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:border-[#0e4c85]">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-[#0e4c85] mb-1">Unidade</label>
+                        <select id="modal-unidade" class="w-full font-semibold text-gray-800 border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#0e4c85]">
+                            <option value="contentores">Contentores</option>
+                            <option value="paletes">Paletes</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-[#0e4c85] mb-1">Estado</label>
+                        <select id="modal-status" class="w-full font-semibold text-gray-800 border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-[#0e4c85]">
+                            <option value="por_triar">🚫 Por triar</option>
+                            <option value="triados">✅ Triados(as)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Notas adicionais (opcional)</label>
+                    <input type="text" id="modal-notas" placeholder="Adicionar comentário ou nota..." class="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#0e4c85]">
+                </div>
+
+                <div class="mt-6 pt-3 border-t border-gray-100 flex justify-end gap-2">
+                    <button type="button" onclick="closeAddModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm px-4 py-2 rounded-lg font-medium transition">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="bg-[#0e4c85] hover:bg-[#0b3d6c] text-white text-sm px-4 py-2 rounded-lg font-medium transition">
+                        Guardar Registo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tutorial Modal -->
+    <div id="tutorial-modal" class="fixed inset-0 modal-overlay flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl relative animate-in fade-in zoom-in duration-200">
+            <div class="flex justify-between items-center mb-4 border-b border-gray-100 pb-3">
+                <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-info text-[#0e4c85]"></i> Como Utilizar a Aplicação
+                </h3>
+                <button onclick="closeTutorial()" class="text-gray-400 hover:text-gray-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4 text-sm text-gray-600 max-h-[60vh] overflow-y-auto pr-2">
+                <div class="flex gap-3 items-start">
+                    <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">1</div>
+                    <div>
+                        <strong class="text-gray-800">Dropdown Inteligente de Referências:</strong> Ao clicar em "Adicionar", pode selecionar uma referência já existente no menu pendente (dropdown) ou escrever uma nova. O nome da peça preenche-se automaticamente se já estiver registado!
+                    </div>
+                </div>
+
+                <div class="flex gap-3 items-start">
+                    <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">2</div>
+                    <div>
+                        <strong class="text-gray-800">Agrupamento Automático:</strong> Referências iguais são agrupadas num único cartão, juntando as respetivas pistas e notas.
+                    </div>
+                </div>
+
+                <div class="flex gap-3 items-start">
+                    <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">3</div>
+                    <div>
+                        <strong class="text-gray-800">Gerir Pistas e Estados:</strong> Pode adicionar mais pistas com o botão <span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-medium text-xs"><i class="fa-solid fa-location-dot"></i> + Pista</span> e alternar estados diretamente nas caixas seletoras.
+                    </div>
+                </div>
+
+                <div class="flex gap-3 items-start">
+                    <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">4</div>
+                    <div>
+                        <strong class="text-gray-800">Partilha WhatsApp:</strong> Envie a listagem organizada diretamente para o WhatsApp de forma instantânea.
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 pt-3 border-t border-gray-100 flex justify-end">
+                <button onclick="closeTutorial()" class="bg-[#0e4c85] hover:bg-[#0b3d6c] text-white text-sm px-4 py-2 rounded-lg font-medium transition">
+                    Compreendido
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 py-3 text-center text-xs text-gray-500">
+        Painel de controlo com IndexedDB &bull; Compatível com partilha direta no WhatsApp &bull; v2.1.0
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        let db = null;
+        let data = [];
+        let catalogCache = {}; // Cache para autocomplete rápido das referências e peças
+
+        // Inicializar IndexedDB
+        function initDB() {
+            const request = indexedDB.open("TriagemDB", 2);
+
+            request.onerror = function(event) {
+                console.error("Erro ao abrir IndexedDB:", event.target.error);
+            };
+
+            request.onsuccess = function(event) {
+                db = event.target.result;
+                loadCatalog();
+                loadDataFromDB();
+            };
+
+            request.onupgradeneeded = function(event) {
+                db = event.target.result;
+                if (!db.objectStoreNames.contains("triagem_items")) {
+                    db.createObjectStore("triagem_items", { keyPath: "id" });
+                }
+                if (!db.objectStoreNames.contains("pecas_catalogo")) {
+                    db.createObjectStore("pecas_catalogo", { keyPath: "referencia" });
+                }
+            };
+        }
+
+        function loadCatalog() {
+            if (!db) return;
+            const transaction = db.transaction(["pecas_catalogo"], "readonly");
+            const store = transaction.objectStore("pecas_catalogo");
+            const request = store.getAll();
+
+            request.onsuccess = function(event) {
+                const results = event.target.result || [];
+                catalogCache = {};
+                results.forEach(item => {
+                    catalogCache[item.referencia] = item.peca;
+                });
+                updateDatalist();
+            };
+        }
+
+        function updateDatalist() {
+            const datalist = document.getElementById('referencias-list');
+            if (!datalist) return;
+            datalist.innerHTML = '';
+            
+            Object.keys(catalogCache).forEach(ref => {
+                const option = document.createElement('option');
+                option.value = ref;
+                option.label = catalogCache[ref]; // Mostra o nome da peça como legenda no browser
+                datalist.appendChild(option);
+            });
+        }
+
+        function loadDataFromDB() {
+            if (!db) return;
+            const transaction = db.transaction(["triagem_items"], "readonly");
+            const store = transaction.objectStore("triagem_items");
+            const request = store.getAll();
+
+            request.onsuccess = function(event) {
+                data = event.target.result || [];
+                render();
+            };
+        }
+
+        function saveDataToDB(item, callback) {
+            if (!db) return;
+            const transaction = db.transaction(["triagem_items"], "readwrite");
+            const store = transaction.objectStore("triagem_items");
+            store.put(item);
+
+            transaction.oncomplete = function() {
+                if (callback) callback();
+            };
+        }
+
+        function deleteDataFromDB(id, callback) {
+            if (!db) return;
+            const transaction = db.transaction(["triagem_items"], "readwrite");
+            const store = transaction.objectStore("triagem_items");
+            store.delete(id);
+
+            transaction.oncomplete = function() {
+                if (callback) callback();
+            };
+        }
+
+        function savePecaToCatalog(referencia, peca) {
+            if (!db || !referencia) return;
+            const refKey = referencia.trim().toUpperCase();
+            const transaction = db.transaction(["pecas_catalogo"], "readwrite");
+            const store = transaction.objectStore("pecas_catalogo");
+            store.put({ referencia: refKey, peca: peca });
+            
+            catalogCache[refKey] = peca;
+            updateDatalist();
+        }
+
+        function onRefInput(value) {
+            const refKey = value.trim().toUpperCase();
+            const pecaInput = document.getElementById('modal-peca');
+            if (catalogCache[refKey]) {
+                pecaInput.value = catalogCache[refKey];
+            }
+        }
+
+        function openAddModal() {
+            document.getElementById('add-form').reset();
+            document.getElementById('add-modal').classList.remove('hidden');
+            document.getElementById('modal-ref').focus();
+        }
+
+        function closeAddModal() {
+            document.getElementById('add-modal').classList.add('hidden');
+        }
+
+        function handleFormSubmit(event) {
+            event.preventDefault();
+            const ref = document.getElementById('modal-ref').value.trim();
+            const peca = document.getElementById('modal-peca').value.trim();
+            const pistaNome = document.getElementById('modal-pista').value.trim();
+            const qtd = parseInt(document.getElementById('modal-qtd').value) || 0;
+            const unidade = document.getElementById('modal-unidade').value;
+            const statusChoice = document.getElementById('modal-status').value;
+            const notas = document.getElementById('modal-notas').value.trim();
+
+            if (!ref) return;
+
+            if (peca) {
+                savePecaToCatalog(ref, peca);
+            }
+
+            const pistasList = [];
+            if (pistaNome) {
+                let status = statusChoice;
+                if (status === 'triados' && unidade === 'paletes') {
+                    status = 'triadas';
+                }
+                pistasList.push({
+                    pista: pistaNome.toUpperCase(),
+                    quantidade: qtd,
+                    unidade: unidade,
+                    status: status
+                });
+            }
+
+            const newItem = {
+                id: Date.now().toString(),
+                referencia: ref,
+                peca: peca,
+                pistas: pistasList,
+                notas: notas
+            };
+
+            saveDataToDB(newItem, () => {
+                data.push(newItem);
+                render();
+                closeAddModal();
+            });
+        }
+
+        function getGroupedData() {
+            const groupedMap = new Map();
+
+            data.forEach((item, originalIndex) => {
+                const refKey = (item.referencia || "").trim().toUpperCase();
+                const pecaKey = (item.peca || "").trim().toUpperCase();
+                const mapKey = `${refKey}___${pecaKey}`;
+
+                if (!groupedMap.has(mapKey)) {
+                    groupedMap.set(mapKey, {
+                        referencia: item.referencia,
+                        peca: item.peca,
+                        notasSet: new Set(),
+                        pistas: [],
+                        originalIds: [],
+                        originalIndices: []
+                    });
+                }
+
+                const group = groupedMap.get(mapKey);
+                group.originalIndices.push(originalIndex);
+                group.originalIds.push(item.id);
+
+                if (item.notas && item.notas.trim() !== "") {
+                    group.notasSet.add(item.notas.trim());
+                }
+
+                if (item.pistas && item.pistas.length > 0) {
+                    item.pistas.forEach((p, pistaIdx) => {
+                        group.pistas.push({
+                            ...p,
+                            sourceItemId: item.id,
+                            sourcePistaIndex: pistaIdx
+                        });
+                    });
+                }
+            });
+
+            return Array.from(groupedMap.values());
+        }
+
+        function render() {
+            const container = document.getElementById('items-container');
+            const emptyState = document.getElementById('empty-state');
+            container.innerHTML = '';
+
+            if (data.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            const groupedItems = getGroupedData();
+
+            groupedItems.forEach((group) => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 relative group";
+
+                let pistasHTML = '';
+                if (group.pistas && group.pistas.length > 0) {
+                    pistasHTML = `<div class="mt-3 space-y-2 border-t border-gray-100 pt-3">
+                        <div class="text-xs font-semibold uppercase tracking-wider text-gray-400">Pistas / Localizações</div>`;
+                    
+                    group.pistas.forEach((p) => {
+                        const isTriado = p.status === 'triados' || p.status === 'triadas';
+                        pistasHTML += `
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-50 p-2.5 rounded-lg gap-2 border border-gray-100">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-mono bg-white px-2 py-1 rounded border border-gray-200 text-xs font-bold text-[#0e4c85]">${p.pista}</span>
+                                    <span class="text-sm font-medium text-gray-700">${p.quantidade} ${p.unidade || 'contentores'}</span>
+                                </div>
+                                <div class="flex items-center gap-2 justify-between sm:justify-end">
+                                    <select onchange="updateStatus('${p.sourceItemId}', ${p.sourcePistaIndex}, this.value)" class="text-xs font-medium px-2.5 py-1.5 rounded border ${isTriado ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'} focus:outline-none">
+                                        <option value="por_triar" ${!isTriado ? 'selected' : ''}>🚫 Por triar</option>
+                                        <option value="triados" ${isTriado ? 'selected' : ''}>✅ Triados(as)</option>
+                                    </select>
+                                    <button onclick="removePista('${p.sourceItemId}', ${p.sourcePistaIndex})" class="text-gray-400 hover:text-red-500 p-1" title="Remover Pista">
+                                        <i class="fa-solid fa-trash-can text-xs"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    pistasHTML += `</div>`;
+                }
+
+                const primaryId = group.originalIds[0];
+                const notesArray = Array.from(group.notasSet);
+                const combinedNotes = notesArray.join(' | ');
+
+                let removeButtonHTML = '';
+                if (group.originalIds.length === 1) {
+                    removeButtonHTML = `<button onclick="removeItem('${primaryId}')" class="text-gray-400 hover:text-red-500 p-1.5" title="Remover Registo"><i class="fa-solid fa-xmark text-sm"></i></button>`;
+                } else {
+                    const idsParam = JSON.stringify(group.originalIds);
+                    removeButtonHTML = `<button onclick='removeGroup(${idsParam})' class="text-gray-400 hover:text-red-500 p-1.5" title="Remover Todos os Registos Agrupados"><i class="fa-solid fa-xmark text-sm"></i></button>`;
+                }
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start gap-3">
+                        <div class="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-xs font-bold uppercase tracking-wider text-[#0e4c85]">Referência</label>
+                                <input type="text" value="${group.referencia}" onchange="updateReferenciaGroup(${JSON.stringify(group.originalIds)}, this.value)" placeholder="Indique a referência..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-[#0e4c85] focus:outline-none py-1 bg-transparent text-base">
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold uppercase tracking-wider text-[#0e4c85]">Nome da Peça</label>
+                                <input type="text" value="${group.peca || ''}" onchange="updatePecaGroup(${JSON.stringify(group.originalIds)}, this.value)" placeholder="Indique o nome da peça..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-[#0e4c85] focus:outline-none py-1 bg-transparent text-base">
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0 mt-5">
+                            <button onclick="addPista('${primaryId}')" class="text-xs bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-[#0e4c85] px-2.5 py-1.5 rounded-md font-medium transition flex items-center gap-1">
+                                <i class="fa-solid fa-location-dot"></i> + Pista
+                            </button>
+                            ${removeButtonHTML}
+                        </div>
+                    </div>
+
+                    ${pistasHTML}
+                    
+                    <div class="mt-3">
+                        <label class="text-xs font-semibold uppercase tracking-wider text-gray-400 block mb-1">Notas adicionais</label>
+                        <input type="text" value="${combinedNotes}" onchange="updateNotasGroup(${JSON.stringify(group.originalIds)}, this.value)" placeholder="Adicionar comentário ou nota..." class="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#0e4c85]">
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function updateReferenciaGroup(ids, value) {
+            ids.forEach(id => {
+                const item = data.find(d => d.id == id);
+                if (item) {
+                    item.referencia = value;
+                    saveDataToDB(item);
+                }
+            });
+        }
+
+        function updatePecaGroup(ids, value) {
+            ids.forEach(id => {
+                const item = data.find(d => d.id == id);
+                if (item) {
+                    item.peca = value;
+                    saveDataToDB(item);
+                    savePecaToCatalog(item.referencia, value);
+                }
+            });
+        }
+
+        function updateNotasGroup(ids, value) {
+            ids.forEach((id, i) => {
+                const item = data.find(d => d.id == id);
+                if (item) {
+                    item.notas = (i === 0) ? value : "";
+                    saveDataToDB(item);
+                }
+            });
+        }
+
+        function updateStatus(itemId, pistaIdx, status) {
+            const item = data.find(d => d.id == itemId);
+            if (item && item.pistas[pistaIdx]) {
+                item.pistas[pistaIdx].status = status;
+                saveDataToDB(item, () => render());
+            }
+        }
+
+        function addPista(itemId) {
+            const pistaNome = prompt("Indique a pista (ex: F28):");
+            if (!pistaNome) return;
+            const qtdStr = prompt("Indique a quantidade:", "10");
+            const qtd = parseInt(qtdStr) || 0;
+            
+            const unidadeChoice = prompt("Escolha a unidade:\n1 - contentores\n2 - paletes", "1");
+            let unidade = "contentores";
+            if (unidadeChoice === "2" || unidadeChoice?.toLowerCase().includes("palete")) {
+                unidade = "paletes";
+            }
+
+            const statusChoice = prompt("Estado da pista:\n1 - Por triar 🚫\n2 - Triados(as) ✅", "1");
+            let status = "por_triar";
+            if (statusChoice === "2" || statusChoice?.toLowerCase().includes("triado") || statusChoice?.toLowerCase().includes("triada")) {
+                status = unidade === "paletes" ? "triadas" : "triados";
+            }
+
+            const item = data.find(d => d.id == itemId);
+            if (item) {
+                if (!item.pistas) item.pistas = [];
+                item.pistas.push({
+                    pista: pistaNome.toUpperCase(),
+                    quantidade: qtd,
+                    unidade: unidade,
+                    status: status
+                });
+                saveDataToDB(item, () => render());
+            }
+        }
+
+        function removePista(itemId, pistaIdx) {
+            const item = data.find(d => d.id == itemId);
+            if (item && item.pistas) {
+                item.pistas.splice(pistaIdx, 1);
+                saveDataToDB(item, () => render());
+            }
+        }
+
+        function removeItem(itemId) {
+            if (confirm("Deseja eliminar este registo por completo?")) {
+                deleteDataFromDB(itemId, () => {
+                    data = data.filter(d => d.id != itemId);
+                    render();
+                });
+            }
+        }
+
+        function removeGroup(ids) {
+            if (confirm("Deseja eliminar estes registos por completo?")) {
+                let completed = 0;
+                ids.forEach(id => {
+                    deleteDataFromDB(id, () => {
+                        completed++;
+                        if (completed === ids.length) {
+                            data = data.filter(d => !ids.includes(d.id));
+                            render();
+                        }
+                    });
+                });
+            }
+        }
+
+        function openTutorial() {
+            document.getElementById('tutorial-modal').classList.remove('hidden');
+        }
+
+        function closeTutorial() {
+            document.getElementById('tutorial-modal').classList.add('hidden');
+        }
+
+        function shareWhatsApp() {
+            if (data.length === 0) {
+                alert("Não existem dados para partilhar.");
+                return;
+            }
+
+            const groupedItems = getGroupedData();
+
+            let text = "*ESTADO DE TRIAGEM E PISTAS*\n\n";
+            
+            groupedItems.forEach((group) => {
+                text += `🔹 *${group.referencia}*`;
+                if (group.peca && group.peca.trim() !== "") {
+                    text += ` - ${group.peca}`;
+                }
+                if (group.notasSet.size > 0) {
+                    const notasArr = Array.from(group.notasSet);
+                    text += ` - _${notasArr.join(' | ')}_`;
+                }
+                text += `\n`;
+
+                if (group.pistas && group.pistas.length > 0) {
+                    group.pistas.forEach(p => {
+                        const icon = (p.status === 'triados' || p.status === 'triadas') ? '✅' : '🚫';
+                        const statusText = (p.status === 'triados' || p.status === 'triadas') ? 'triados(as)' : 'por triar';
+                        text += `    * ${p.pista} _ ${p.quantidade} ${p.unidade} ${statusText} ${icon}\n`;
+                    });
+                }
+                text += `\n`;
+            });
+
+            const encoded = encodeURIComponent(text.trim());
+            window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
+        }
+
+        // Service Worker Registration for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('Service Worker registado com sucesso:', reg.scope))
+                    .catch(err => console.log('Falha ao registar o Service Worker:', err));
+            });
+        }
+
+        // Initial setup on load
+        initDB();
+    </script>
+</body>
+</html>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0e4c85">
     <meta name="apple-mobile-web-app-capable" content="yes">
