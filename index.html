@@ -29,7 +29,7 @@
         <div class="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
             <div>
                 <h1 class="text-xl font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-boxes-stacked"></i> Gestão de Triagem <span class="text-xs font-normal bg-white/20 px-2 py-0.5 rounded-full text-indigo-100">v2.0.1</span>
+                    <i class="fa-solid fa-boxes-stacked"></i> Gestão de Triagem <span class="text-xs font-normal bg-white/20 px-2 py-0.5 rounded-full text-indigo-100">v2.1.1</span>
                 </h1>
                 <p class="text-xs text-indigo-200">Registo com IndexedDB &bull; Auto-preenchimento de Peças</p>
             </div>
@@ -88,7 +88,7 @@
                 <div class="flex gap-3 items-start">
                     <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">3</div>
                     <div>
-                        <strong class="text-gray-800">Gerir Pistas e Estados:</strong> Pode adicionar mais pistas com o botão <span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-medium text-xs">+ Pista</span>. Clique diretamente no bloco da pista para editar os seus dados ou altere o estado na caixa seletora.
+                        <strong class="text-gray-800">Gerir Pistas e Estados:</strong> Clique diretamente no bloco da pista para editar os seus dados ou altere o estado na caixa seletora.
                     </div>
                 </div>
 
@@ -314,9 +314,6 @@
                             </div>
                         </div>
                         <div class="flex items-center gap-1 shrink-0 mt-5">
-                            <button onclick="addPista('${primaryId}')" class="text-xs bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-[#0e4c85] px-2.5 py-1.5 rounded-md font-medium transition flex items-center gap-1">
-                                + Pista
-                            </button>
                             ${removeButtonHTML}
                         </div>
                     </div>
@@ -398,37 +395,6 @@
             }
 
             saveDataToDB(item, () => render());
-        }
-
-        function addPista(itemId) {
-            const pistaNome = prompt("Indique a pista (ex: F28):");
-            if (!pistaNome) return;
-            const qtdStr = prompt("Indique a quantidade:", "10");
-            const qtd = parseInt(qtdStr) || 0;
-            
-            const unidadeChoice = prompt("Escolha a unidade:\n1 - contentores\n2 - paletes", "1");
-            let unidade = "contentores";
-            if (unidadeChoice === "2" || unidadeChoice?.toLowerCase().includes("palete")) {
-                unidade = "paletes";
-            }
-
-            const statusChoice = prompt("Estado da pista:\n1 - Por triar 🚫\n2 - Triados(as) ✅", "1");
-            let status = "por_triar";
-            if (statusChoice === "2" || statusChoice?.toLowerCase().includes("triado") || statusChoice?.toLowerCase().includes("triada")) {
-                status = unidade === "paletes" ? "triadas" : "triados";
-            }
-
-            const item = data.find(d => d.id == itemId);
-            if (item) {
-                if (!item.pistas) item.pistas = [];
-                item.pistas.push({
-                    pista: pistaNome.toUpperCase(),
-                    quantidade: qtd,
-                    unidade: unidade,
-                    status: status
-                });
-                saveDataToDB(item, () => render());
-            }
         }
 
         function removePista(itemId, pistaIdx) {
