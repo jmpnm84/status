@@ -74,7 +74,7 @@
                 <div class="flex gap-3 items-start">
                     <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">1</div>
                     <div>
-                        <strong class="text-gray-800">Adicionar Registo:</strong> Clique no botão <span class="bg-indigo-100 text-[#0e4c85] px-1.5 py-0.5 rounded font-medium text-xs">Adicionar</span> no topo. Irá preencher sequencialmente a Referência, Pista, Quantidade, Unidade, Estado e Notas adicionais.
+                        <strong class="text-gray-800">Adicionar Registo:</strong> Clique no botão <span class="bg-indigo-100 text-[#0e4c85] px-1.5 py-0.5 rounded font-medium text-xs">Adicionar</span> no topo. Irá preencher sequencialmente a Referência, o Nome da Peça, Pista, Quantidade, Unidade, Estado e Notas adicionais.
                     </div>
                 </div>
 
@@ -164,11 +164,17 @@
 
                 card.innerHTML = `
                     <div class="flex justify-between items-start gap-3">
-                        <div class="flex-grow">
-                            <label class="text-xs font-bold uppercase tracking-wider text-[#0e4c85]">Referência</label>
-                            <input type="text" value="${item.referencia}" onchange="updateReferencia(${itemIndex}, this.value)" placeholder="Indique a referência..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-[#0e4c85] focus:outline-none py-1 bg-transparent text-base">
+                        <div class="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="text-xs font-bold uppercase tracking-wider text-[#0e4c85]">Referência</label>
+                                <input type="text" value="${item.referencia}" onchange="updateReferencia(${itemIndex}, this.value)" placeholder="Indique a referência..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-[#0e4c85] focus:outline-none py-1 bg-transparent text-base">
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold uppercase tracking-wider text-[#0e4c85]">Nome da Peça</label>
+                                <input type="text" value="${item.peca || ''}" onchange="updatePeca(${itemIndex}, this.value)" placeholder="Indique o nome da peça..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-[#0e4c85] focus:outline-none py-1 bg-transparent text-base">
+                            </div>
                         </div>
-                        <div class="flex items-center gap-1">
+                        <div class="flex items-center gap-1 shrink-0 mt-5">
                             <button onclick="addPista(${itemIndex})" class="text-xs bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-[#0e4c85] px-2.5 py-1.5 rounded-md font-medium transition flex items-center gap-1">
                                 <i class="fa-solid fa-location-dot"></i> + Pista
                             </button>
@@ -191,6 +197,10 @@
 
         function updateReferencia(index, value) {
             data[index].referencia = value;
+        }
+
+        function updatePeca(index, value) {
+            data[index].peca = value;
         }
 
         function updateNotas(index, value) {
@@ -248,6 +258,8 @@
             const ref = prompt("Indique a Referência:");
             if (!ref) return;
 
+            const peca = prompt("Indique o nome da peça associada:", "") || "";
+
             const pistasList = [];
             const pistaNome = prompt("Indique a pista (ex: F28):");
             if (pistaNome) {
@@ -279,6 +291,7 @@
             data.push({
                 id: Date.now(),
                 referencia: ref,
+                peca: peca,
                 pistas: pistasList,
                 notas: notas
             });
@@ -303,6 +316,9 @@
             
             data.forEach((item) => {
                 text += `🔹 *${item.referencia}*`;
+                if (item.peca && item.peca.trim() !== "") {
+                    text += ` - ${item.peca}`;
+                }
                 if (item.notas && item.notas.trim() !== "") {
                     text += ` - _${item.notas}_`;
                 }
