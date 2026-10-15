@@ -29,7 +29,7 @@
         <div class="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
             <div>
                 <h1 class="text-xl font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-boxes-stacked"></i> Gestão de Triagem <span class="text-xs font-normal bg-white/20 px-2 py-0.5 rounded-full text-indigo-100">v1.0.1</span>
+                    <i class="fa-solid fa-boxes-stacked"></i> Gestão de Triagem <span class="text-xs font-normal bg-white/20 px-2 py-0.5 rounded-full text-indigo-100">v1.0.2</span>
                 </h1>
                 <p class="text-xs text-indigo-200">Registo de Referências, Estado das Pistas e Notas</p>
             </div>
@@ -95,7 +95,7 @@
                 <div class="flex gap-3 items-start">
                     <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">4</div>
                     <div>
-                        <strong class="text-gray-800">Enviar para o WhatsApp:</strong> Quando terminar, clique em <span class="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium text-xs">Enviar WhatsApp</span> para formatar e partilhar a lista instantaneamente.
+                        <strong class="text-gray-800">Enviar para o WhatsApp:</strong> Quando terminar, clique em <span class="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium text-xs">Enviar WhatsApp</span> para formatar e partilhar a lista instantaneamente (referências iguais são agrupadas automaticamente).
                     </div>
                 </div>
             </div>
@@ -312,20 +312,47 @@
                 return;
             }
 
+            // Group items by reference (and normalize key matching)
+            const groupedMap = new Map();
+
+            data.forEach((item) => {
+                const refKey = (item.referencia || "").trim().toUpperCase();
+                const pecaKey = (item.peca || "").trim();
+                const mapKey = `${refKey}___${pecaKey}`;
+
+                if (!groupedMap.has(mapKey)) {
+                    groupedMap.set(mapKey, {
+                        referencia: item.referencia,
+                        peca: item.peca,
+                        notasSet: new Set(),
+                        pistas: []
+                    });
+                }
+
+                const group = groupedMap.get(mapKey);
+                if (item.notas && item.notas.trim() !== "") {
+                    group.notasSet.add(item.notas.trim());
+                }
+                if (item.pistas && item.pistas.length > 0) {
+                    group.pistas.push(...item.pistas);
+                }
+            });
+
             let text = "*ESTADO DE TRIAGEM E PISTAS*\n\n";
             
-            data.forEach((item) => {
-                text += `🔹 *${item.referencia}*`;
-                if (item.peca && item.peca.trim() !== "") {
-                    text += ` - ${item.peca}`;
+            groupedMap.forEach((group) => {
+                text += `🔹 *${group.referencia}*`;
+                if (group.peca && group.peca.trim() !== "") {
+                    text += ` - ${group.peca}`;
                 }
-                if (item.notas && item.notas.trim() !== "") {
-                    text += ` - _${item.notas}_`;
+                if (group.notasSet.size > 0) {
+                    const notasArr = Array.from(group.notasSet);
+                    text += ` - _${notasArr.join(' | ')}_`;
                 }
                 text += `\n`;
 
-                if (item.pistas && item.pistas.length > 0) {
-                    item.pistas.forEach(p => {
+                if (group.pistas && group.pistas.length > 0) {
+                    group.pistas.forEach(p => {
                         const icon = (p.status === 'triados' || p.status === 'triadas') ? '✅' : '🚫';
                         const statusText = (p.status === 'triados' || p.status === 'triadas') ? 'triados(as)' : 'por triar';
                         text += `    * ${p.pista} _ ${p.quantidade} ${p.unidade} ${statusText} ${icon}\n`;
