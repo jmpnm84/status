@@ -29,7 +29,7 @@
         <div class="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
             <div>
                 <h1 class="text-xl font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-boxes-stacked"></i> Gestão de Triagem <span class="text-xs font-normal bg-white/20 px-2 py-0.5 rounded-full text-indigo-100">v1.0.3</span>
+                    <i class="fa-solid fa-boxes-stacked"></i> Gestão de Triagem <span class="text-xs font-normal bg-white/20 px-2 py-0.5 rounded-full text-indigo-100">v1.0.4</span>
                 </h1>
                 <p class="text-xs text-indigo-200">Registo de Referências, Estado das Pistas e Notas</p>
             </div>
@@ -81,7 +81,7 @@
                 <div class="flex gap-3 items-start">
                     <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">2</div>
                     <div>
-                        <strong class="text-gray-800">Gerir Pistas:</strong> Pode adicionar mais pistas a um registo existente clicando no botão <span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-medium text-xs"><i class="fa-solid fa-location-dot"></i> + Pista</span> no próprio cartão.
+                        <strong class="text-gray-800">Gerir Pistas:</strong> Referências iguais são agrupadas automaticamente num único cartão, reunindo todas as pistas e notas numa lista organizada. Pode adicionar mais pistas clicando em <span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-medium text-xs"><i class="fa-solid fa-location-dot"></i> + Pista</span>.
                     </div>
                 </div>
 
@@ -95,7 +95,7 @@
                 <div class="flex gap-3 items-start">
                     <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">4</div>
                     <div>
-                        <strong class="text-gray-800">Enviar para o WhatsApp:</strong> Quando terminar, clique em <span class="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium text-xs">Enviar WhatsApp</span> para formatar e partilhar a lista instantaneamente (referências iguais são agrupadas automaticamente).
+                        <strong class="text-gray-800">Enviar para o WhatsApp:</strong> Quando terminar, clique em <span class="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium text-xs">Enviar WhatsApp</span> para formatar e partilhar a lista instantaneamente.
                     </div>
                 </div>
             </div>
@@ -118,6 +118,45 @@
         // Start with an empty list
         let data = [];
 
+        function getGroupedData() {
+            const groupedMap = new Map();
+
+            data.forEach((item, originalIndex) => {
+                const refKey = (item.referencia || "").trim().toUpperCase();
+                const pecaKey = (item.peca || "").trim();
+                const mapKey = `${refKey}___${pecaKey}`;
+
+                if (!groupedMap.has(mapKey)) {
+                    groupedMap.set(mapKey, {
+                        referencia: item.referencia,
+                        peca: item.peca,
+                        notasSet: new Set(),
+                        pistas: [],
+                        originalIndices: []
+                    });
+                }
+
+                const group = groupedMap.get(mapKey);
+                group.originalIndices.push(originalIndex);
+
+                if (item.notas && item.notas.trim() !== "") {
+                    group.notasSet.add(item.notas.trim());
+                }
+
+                if (item.pistas && item.pistas.length > 0) {
+                    item.pistas.forEach((p, pistaIdx) => {
+                        group.pistas.push({
+                            ...p,
+                            sourceItemIndex: originalIndex,
+                            sourcePistaIndex: pistaIdx
+                        });
+                    });
+                }
+            });
+
+            return Array.from(groupedMap.values());
+        }
+
         function render() {
             const container = document.getElementById('items-container');
             const emptyState = document.getElementById('empty-state');
@@ -130,16 +169,18 @@
                 emptyState.classList.add('hidden');
             }
 
-            data.forEach((item, itemIndex) => {
+            const groupedItems = getGroupedData();
+
+            groupedItems.forEach((group, groupIndex) => {
                 const card = document.createElement('div');
                 card.className = "bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 relative group";
 
                 let pistasHTML = '';
-                if (item.pistas && item.pistas.length > 0) {
+                if (group.pistas && group.pistas.length > 0) {
                     pistasHTML = `<div class="mt-3 space-y-2 border-t border-gray-100 pt-3">
                         <div class="text-xs font-semibold uppercase tracking-wider text-gray-400">Pistas / Localizações</div>`;
                     
-                    item.pistas.forEach((p, pIndex) => {
+                    group.pistas.forEach((p, pIndex) => {
                         const isTriado = p.status === 'triados' || p.status === 'triadas';
                         pistasHTML += `
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-50 p-2.5 rounded-lg gap-2 border border-gray-100">
@@ -148,11 +189,11 @@
                                     <span class="text-sm font-medium text-gray-700">${p.quantidade} ${p.unidade || 'contentores'}</span>
                                 </div>
                                 <div class="flex items-center gap-2 justify-between sm:justify-end">
-                                    <select onchange="updateStatus(${itemIndex}, ${pIndex}, this.value)" class="text-xs font-medium px-2.5 py-1.5 rounded border ${isTriado ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'} focus:outline-none">
+                                    <select onchange="updateStatus(${p.sourceItemIndex}, ${p.sourcePistaIndex}, this.value)" class="text-xs font-medium px-2.5 py-1.5 rounded border ${isTriado ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'} focus:outline-none">
                                         <option value="por_triar" ${!isTriado ? 'selected' : ''}>🚫 Por triar</option>
                                         <option value="triados" ${isTriado ? 'selected' : ''}>✅ Triados(as)</option>
                                     </select>
-                                    <button onclick="removePista(${itemIndex}, ${pIndex})" class="text-gray-400 hover:text-red-500 p-1" title="Remover Pista">
+                                    <button onclick="removePista(${p.sourceItemIndex}, ${p.sourcePistaIndex})" class="text-gray-400 hover:text-red-500 p-1" title="Remover Pista">
                                         <i class="fa-solid fa-trash-can text-xs"></i>
                                     </button>
                                 </div>
@@ -162,25 +203,35 @@
                     pistasHTML += `</div>`;
                 }
 
+                const primaryIndex = group.originalIndices[0];
+                const notesArray = Array.from(group.notasSet);
+                const combinedNotes = notesArray.join(' | ');
+
+                let removeButtonHTML = '';
+                if (group.originalIndices.length === 1) {
+                    removeButtonHTML = `<button onclick="removeItem(${primaryIndex})" class="text-gray-400 hover:text-red-500 p-1.5" title="Remover Registo"><i class="fa-solid fa-xmark text-sm"></i></button>`;
+                } else {
+                    const indicesParam = JSON.stringify(group.originalIndices);
+                    removeButtonHTML = `<button onclick='removeGroup(${indicesParam})' class="text-gray-400 hover:text-red-500 p-1.5" title="Remover Todos os Registos Agrupados"><i class="fa-solid fa-xmark text-sm"></i></button>`;
+                }
+
                 card.innerHTML = `
                     <div class="flex justify-between items-start gap-3">
                         <div class="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label class="text-xs font-bold uppercase tracking-wider text-[#0e4c85]">Referência</label>
-                                <input type="text" value="${item.referencia}" onchange="updateReferencia(${itemIndex}, this.value)" placeholder="Indique a referência..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-[#0e4c85] focus:outline-none py-1 bg-transparent text-base">
+                                <input type="text" value="${group.referencia}" onchange="updateReferenciaGroup(${JSON.stringify(group.originalIndices)}, this.value)" placeholder="Indique a referência..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-[#0e4c85] focus:outline-none py-1 bg-transparent text-base">
                             </div>
                             <div>
                                 <label class="text-xs font-bold uppercase tracking-wider text-[#0e4c85]">Nome da Peça</label>
-                                <input type="text" value="${item.peca || ''}" onchange="updatePeca(${itemIndex}, this.value)" placeholder="Indique o nome da peça..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-[#0e4c85] focus:outline-none py-1 bg-transparent text-base">
+                                <input type="text" value="${group.peca || ''}" onchange="updatePecaGroup(${JSON.stringify(group.originalIndices)}, this.value)" placeholder="Indique o nome da peça..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-[#0e4c85] focus:outline-none py-1 bg-transparent text-base">
                             </div>
                         </div>
                         <div class="flex items-center gap-1 shrink-0 mt-5">
-                            <button onclick="addPista(${itemIndex})" class="text-xs bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-[#0e4c85] px-2.5 py-1.5 rounded-md font-medium transition flex items-center gap-1">
+                            <button onclick="addPista(${primaryIndex})" class="text-xs bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-[#0e4c85] px-2.5 py-1.5 rounded-md font-medium transition flex items-center gap-1">
                                 <i class="fa-solid fa-location-dot"></i> + Pista
                             </button>
-                            <button onclick="removeItem(${itemIndex})" class="text-gray-400 hover:text-red-500 p-1.5" title="Remover Registo">
-                                <i class="fa-solid fa-xmark text-sm"></i>
-                            </button>
+                            ${removeButtonHTML}
                         </div>
                     </div>
 
@@ -188,23 +239,31 @@
                     
                     <div class="mt-3">
                         <label class="text-xs font-semibold uppercase tracking-wider text-gray-400 block mb-1">Notas adicionais</label>
-                        <input type="text" value="${item.notas || ''}" onchange="updateNotas(${itemIndex}, this.value)" placeholder="Adicionar comentário ou nota..." class="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#0e4c85]">
+                        <input type="text" value="${combinedNotes}" onchange="updateNotasGroup(${JSON.stringify(group.originalIndices)}, this.value)" placeholder="Adicionar comentário ou nota..." class="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#0e4c85]">
                     </div>
                 `;
                 container.appendChild(card);
             });
         }
 
-        function updateReferencia(index, value) {
-            data[index].referencia = value;
+        function updateReferenciaGroup(indices, value) {
+            indices.forEach(idx => {
+                if (data[idx]) data[idx].referencia = value;
+            });
         }
 
-        function updatePeca(index, value) {
-            data[index].peca = value;
+        function updatePecaGroup(indices, value) {
+            indices.forEach(idx => {
+                if (data[idx]) data[idx].peca = value;
+            });
         }
 
-        function updateNotas(index, value) {
-            data[index].notas = value;
+        function updateNotasGroup(indices, value) {
+            indices.forEach((idx, i) => {
+                if (data[idx]) {
+                    data[idx].notas = (i === 0) ? value : "";
+                }
+            });
         }
 
         function updateStatus(itemIdx, pistaIdx, status) {
@@ -250,6 +309,16 @@
         function removeItem(itemIdx) {
             if (confirm("Deseja eliminar este registo por completo?")) {
                 data.splice(itemIdx, 1);
+                render();
+            }
+        }
+
+        function removeGroup(indices) {
+            if (confirm("Deseja eliminar estes registos por completo?")) {
+                // Sort descending to avoid index shifting problems during splice
+                indices.sort((a, b) => b - a).forEach(idx => {
+                    data.splice(idx, 1);
+                });
                 render();
             }
         }
@@ -312,35 +381,11 @@
                 return;
             }
 
-            // Group items by reference (and normalize key matching)
-            const groupedMap = new Map();
-
-            data.forEach((item) => {
-                const refKey = (item.referencia || "").trim().toUpperCase();
-                const pecaKey = (item.peca || "").trim();
-                const mapKey = `${refKey}___${pecaKey}`;
-
-                if (!groupedMap.has(mapKey)) {
-                    groupedMap.set(mapKey, {
-                        referencia: item.referencia,
-                        peca: item.peca,
-                        notasSet: new Set(),
-                        pistas: []
-                    });
-                }
-
-                const group = groupedMap.get(mapKey);
-                if (item.notas && item.notas.trim() !== "") {
-                    group.notasSet.add(item.notas.trim());
-                }
-                if (item.pistas && item.pistas.length > 0) {
-                    group.pistas.push(...item.pistas);
-                }
-            });
+            const groupedItems = getGroupedData();
 
             let text = "*ESTADO DE TRIAGEM E PISTAS*\n\n";
             
-            groupedMap.forEach((group) => {
+            groupedItems.forEach((group) => {
                 text += `🔹 *${group.referencia}*`;
                 if (group.peca && group.peca.trim() !== "") {
                     text += ` - ${group.peca}`;
