@@ -29,7 +29,7 @@
         <div class="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
             <div>
                 <h1 class="text-xl font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-boxes-stacked"></i> Gestão de Triagem <span class="text-xs font-normal bg-white/20 px-2 py-0.5 rounded-full text-indigo-100">v2.0.0</span>
+                    <i class="fa-solid fa-boxes-stacked"></i> Gestão de Triagem <span class="text-xs font-normal bg-white/20 px-2 py-0.5 rounded-full text-indigo-100">v2.1.0</span>
                 </h1>
                 <p class="text-xs text-indigo-200">Registo com IndexedDB &bull; Auto-preenchimento de Peças</p>
             </div>
@@ -88,7 +88,7 @@
                 <div class="flex gap-3 items-start">
                     <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">3</div>
                     <div>
-                        <strong class="text-gray-800">Gerir Pistas e Estados:</strong> Pode adicionar mais pistas com o botão <span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-medium text-xs"><i class="fa-solid fa-location-dot"></i> + Pista</span> e alternar estados diretamente nas caixas seletoras.
+                        <strong class="text-gray-800">Gerir Pistas e Estados:</strong> Pode adicionar mais pistas com o botão <span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-medium text-xs"><i class="fa-solid fa-location-dot"></i> + Pista</span>. Clique diretamente no bloco da pista para editar os seus dados ou altere o estado na caixa seletora.
                     </div>
                 </div>
 
@@ -270,7 +270,7 @@
                         const isTriado = p.status === 'triados' || p.status === 'triadas';
                         pistasHTML += `
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-gray-50 p-2.5 rounded-lg gap-2 border border-gray-100">
-                                <div class="flex items-center gap-2">
+                                <div onclick="editPista('${p.sourceItemId}', ${p.sourcePistaIndex})" class="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-1 rounded transition flex-grow" title="Clique para editar a pista">
                                     <span class="font-mono bg-white px-2 py-1 rounded border border-gray-200 text-xs font-bold text-[#0e4c85]">${p.pista}</span>
                                     <span class="text-sm font-medium text-gray-700">${p.quantidade} ${p.unidade || 'contentores'}</span>
                                 </div>
@@ -369,6 +369,35 @@
                 item.pistas[pistaIdx].status = status;
                 saveDataToDB(item, () => render());
             }
+        }
+
+        function editPista(itemId, pistaIdx) {
+            const item = data.find(d => d.id == itemId);
+            if (!item || !item.pistas[pistaIdx]) return;
+
+            const pistaAtual = item.pistas[pistaIdx];
+            const pistaNome = prompt("Indique a pista (ex: F28):", pistaAtual.pista);
+            if (!pistaNome) return;
+
+            const qtdStr = prompt("Indique a quantidade:", pistaAtual.quantidade);
+            const qtd = parseInt(qtdStr) || 0;
+            
+            const unidadeChoice = prompt("Escolha a unidade:\n1 - contentores\n2 - paletes", pistaAtual.unidade === "paletes" ? "2" : "1");
+            let unidade = "contentores";
+            if (unidadeChoice === "2" || unidadeChoice?.toLowerCase().includes("palete")) {
+                unidade = "paletes";
+            }
+
+            item.pistas[pistaIdx].pista = pistaNome.toUpperCase();
+            item.pistas[pistaIdx].quantidade = qtd;
+            item.pistas[pistaIdx].unidade = unidade;
+            if (unidade === "paletes" && item.pistas[pistaIdx].status === "triados") {
+                item.pistas[pistaIdx].status = "triadas";
+            } else if (unidade === "contentores" && item.pistas[pistaIdx].status === "triadas") {
+                item.pistas[pistaIdx].status = "triados";
+            }
+
+            saveDataToDB(item, () => render());
         }
 
         function addPista(itemId) {
