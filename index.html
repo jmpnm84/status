@@ -29,9 +29,9 @@
         <div class="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
             <div>
                 <h1 class="text-xl font-bold flex items-center gap-2">
-                    <i class="fa-solid fa-boxes-stacked"></i> Gestão de Triagem <span class="text-xs font-normal bg-white/20 px-2 py-0.5 rounded-full text-indigo-100">v1.0.4</span>
+                    <i class="fa-solid fa-boxes-stacked"></i> Gestão de Triagem <span class="text-xs font-normal bg-white/20 px-2 py-0.5 rounded-full text-indigo-100">v2.0.0</span>
                 </h1>
-                <p class="text-xs text-indigo-200">Registo de Referências, Estado das Pistas e Notas</p>
+                <p class="text-xs text-indigo-200">Registo com IndexedDB &bull; Auto-preenchimento de Peças</p>
             </div>
             <div class="flex gap-2 w-full sm:w-auto">
                 <button onclick="addItem()" class="flex-1 sm:flex-none bg-indigo-500 hover:bg-indigo-400 text-white text-sm px-4 py-2 rounded-lg font-medium shadow transition flex items-center justify-center gap-2">
@@ -74,28 +74,28 @@
                 <div class="flex gap-3 items-start">
                     <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">1</div>
                     <div>
-                        <strong class="text-gray-800">Adicionar Registo:</strong> Clique no botão <span class="bg-indigo-100 text-[#0e4c85] px-1.5 py-0.5 rounded font-medium text-xs">Adicionar</span> no topo. Irá preencher sequencialmente a Referência, o Nome da Peça, Pista, Quantidade, Unidade, Estado e Notas adicionais.
+                        <strong class="text-gray-800">Base de Dados Inteligente:</strong> O sistema guarda as referências e os nomes das peças no IndexedDB. Ao introduzir uma referência já existente, o nome da peça é preenchido automaticamente.
                     </div>
                 </div>
 
                 <div class="flex gap-3 items-start">
                     <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">2</div>
                     <div>
-                        <strong class="text-gray-800">Gerir Pistas:</strong> Referências iguais são agrupadas automaticamente num único cartão, reunindo todas as pistas e notas numa lista organizada. Pode adicionar mais pistas clicando em <span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-medium text-xs"><i class="fa-solid fa-location-dot"></i> + Pista</span>.
+                        <strong class="text-gray-800">Agrupamento Automático:</strong> Referências iguais são agrupadas num único cartão, juntando as respetivas pistas e notas.
                     </div>
                 </div>
 
                 <div class="flex gap-3 items-start">
                     <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">3</div>
                     <div>
-                        <strong class="text-gray-800">Alterar Estados:</strong> Diretamente no cartão, pode alterar o estado de cada pista (Por triar ou Triados(as)) através da caixa seletora.
+                        <strong class="text-gray-800">Gerir Pistas e Estados:</strong> Pode adicionar mais pistas com o botão <span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-medium text-xs"><i class="fa-solid fa-location-dot"></i> + Pista</span> e alternar estados diretamente nas caixas seletoras.
                     </div>
                 </div>
 
                 <div class="flex gap-3 items-start">
                     <div class="bg-indigo-50 text-[#0e4c85] font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">4</div>
                     <div>
-                        <strong class="text-gray-800">Enviar para o WhatsApp:</strong> Quando terminar, clique em <span class="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-medium text-xs">Enviar WhatsApp</span> para formatar e partilhar a lista instantaneamente.
+                        <strong class="text-gray-800">Partilha WhatsApp:</strong> Envie a listagem organizada diretamente para o WhatsApp de forma instantânea.
                     </div>
                 </div>
             </div>
@@ -110,13 +110,97 @@
 
     <!-- Footer -->
     <footer class="bg-white border-t border-gray-200 py-3 text-center text-xs text-gray-500">
-        Painel de controlo interativo &bull; Compatível com partilha direta no WhatsApp &bull; v0.0.1
+        Painel de controlo com IndexedDB &bull; Compatível com partilha direta no WhatsApp &bull; v2.0.0
     </footer>
 
     <!-- JavaScript Application Logic -->
     <script>
-        // Start with an empty list
+        let db = null;
         let data = [];
+
+        // Inicializar IndexedDB
+        function initDB() {
+            const request = indexedDB.open("TriagemDB", 1);
+
+            request.onerror = function(event) {
+                console.error("Erro ao abrir IndexedDB:", event.target.error);
+            };
+
+            request.onsuccess = function(event) {
+                db = event.target.result;
+                loadDataFromDB();
+            };
+
+            request.onupgradeneeded = function(event) {
+                db = event.target.result;
+                if (!db.objectStoreNames.contains("triagem_items")) {
+                    db.createObjectStore("triagem_items", { keyPath: "id" });
+                }
+                if (!db.objectStoreNames.contains("pecas_catalogo")) {
+                    db.createObjectStore("pecas_catalogo", { keyPath: "referencia" });
+                }
+            };
+        }
+
+        function loadDataFromDB() {
+            if (!db) return;
+            const transaction = db.transaction(["triagem_items"], "readonly");
+            const store = transaction.objectStore("triagem_items");
+            const request = store.getAll();
+
+            request.onsuccess = function(event) {
+                data = event.target.result || [];
+                render();
+            };
+        }
+
+        function saveDataToDB(item, callback) {
+            if (!db) return;
+            const transaction = db.transaction(["triagem_items"], "readwrite");
+            const store = transaction.objectStore("triagem_items");
+            store.put(item);
+
+            transaction.oncomplete = function() {
+                if (callback) callback();
+            };
+        }
+
+        function deleteDataFromDB(id, callback) {
+            if (!db) return;
+            const transaction = db.transaction(["triagem_items"], "readwrite");
+            const store = transaction.objectStore("triagem_items");
+            store.delete(id);
+
+            transaction.oncomplete = function() {
+                if (callback) callback();
+            };
+        }
+
+        // Catálogo de Peças (Referência -> Nome)
+        function getPecaFromCatalog(referencia, callback) {
+            if (!db) { callback(""); return; }
+            const refKey = referencia.trim().toUpperCase();
+            const transaction = db.transaction(["pecas_catalogo"], "readonly");
+            const store = transaction.objectStore("pecas_catalogo");
+            const request = store.get(refKey);
+
+            request.onsuccess = function(event) {
+                const result = event.target.result;
+                callback(result ? result.peca : "");
+            };
+
+            request.onerror = function() {
+                callback("");
+            };
+        }
+
+        function savePecaToCatalog(referencia, peca) {
+            if (!db || !referencia) return;
+            const refKey = referencia.trim().toUpperCase();
+            const transaction = db.transaction(["pecas_catalogo"], "readwrite");
+            const store = transaction.objectStore("pecas_catalogo");
+            store.put({ referencia: refKey, peca: peca });
+        }
 
         function getGroupedData() {
             const groupedMap = new Map();
@@ -132,12 +216,14 @@
                         peca: item.peca,
                         notasSet: new Set(),
                         pistas: [],
+                        originalIds: [],
                         originalIndices: []
                     });
                 }
 
                 const group = groupedMap.get(mapKey);
                 group.originalIndices.push(originalIndex);
+                group.originalIds.push(item.id);
 
                 if (item.notas && item.notas.trim() !== "") {
                     group.notasSet.add(item.notas.trim());
@@ -147,7 +233,7 @@
                     item.pistas.forEach((p, pistaIdx) => {
                         group.pistas.push({
                             ...p,
-                            sourceItemIndex: originalIndex,
+                            sourceItemId: item.id,
                             sourcePistaIndex: pistaIdx
                         });
                     });
@@ -189,11 +275,11 @@
                                     <span class="text-sm font-medium text-gray-700">${p.quantidade} ${p.unidade || 'contentores'}</span>
                                 </div>
                                 <div class="flex items-center gap-2 justify-between sm:justify-end">
-                                    <select onchange="updateStatus(${p.sourceItemIndex}, ${p.sourcePistaIndex}, this.value)" class="text-xs font-medium px-2.5 py-1.5 rounded border ${isTriado ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'} focus:outline-none">
+                                    <select onchange="updateStatus('${p.sourceItemId}', ${p.sourcePistaIndex}, this.value)" class="text-xs font-medium px-2.5 py-1.5 rounded border ${isTriado ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'} focus:outline-none">
                                         <option value="por_triar" ${!isTriado ? 'selected' : ''}>🚫 Por triar</option>
                                         <option value="triados" ${isTriado ? 'selected' : ''}>✅ Triados(as)</option>
                                     </select>
-                                    <button onclick="removePista(${p.sourceItemIndex}, ${p.sourcePistaIndex})" class="text-gray-400 hover:text-red-500 p-1" title="Remover Pista">
+                                    <button onclick="removePista('${p.sourceItemId}', ${p.sourcePistaIndex})" class="text-gray-400 hover:text-red-500 p-1" title="Remover Pista">
                                         <i class="fa-solid fa-trash-can text-xs"></i>
                                     </button>
                                 </div>
@@ -203,16 +289,16 @@
                     pistasHTML += `</div>`;
                 }
 
-                const primaryIndex = group.originalIndices[0];
+                const primaryId = group.originalIds[0];
                 const notesArray = Array.from(group.notasSet);
                 const combinedNotes = notesArray.join(' | ');
 
                 let removeButtonHTML = '';
-                if (group.originalIndices.length === 1) {
-                    removeButtonHTML = `<button onclick="removeItem(${primaryIndex})" class="text-gray-400 hover:text-red-500 p-1.5" title="Remover Registo"><i class="fa-solid fa-xmark text-sm"></i></button>`;
+                if (group.originalIds.length === 1) {
+                    removeButtonHTML = `<button onclick="removeItem('${primaryId}')" class="text-gray-400 hover:text-red-500 p-1.5" title="Remover Registo"><i class="fa-solid fa-xmark text-sm"></i></button>`;
                 } else {
-                    const indicesParam = JSON.stringify(group.originalIndices);
-                    removeButtonHTML = `<button onclick='removeGroup(${indicesParam})' class="text-gray-400 hover:text-red-500 p-1.5" title="Remover Todos os Registos Agrupados"><i class="fa-solid fa-xmark text-sm"></i></button>`;
+                    const idsParam = JSON.stringify(group.originalIds);
+                    removeButtonHTML = `<button onclick='removeGroup(${idsParam})' class="text-gray-400 hover:text-red-500 p-1.5" title="Remover Todos os Registos Agrupados"><i class="fa-solid fa-xmark text-sm"></i></button>`;
                 }
 
                 card.innerHTML = `
@@ -220,15 +306,15 @@
                         <div class="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
                                 <label class="text-xs font-bold uppercase tracking-wider text-[#0e4c85]">Referência</label>
-                                <input type="text" value="${group.referencia}" onchange="updateReferenciaGroup(${JSON.stringify(group.originalIndices)}, this.value)" placeholder="Indique a referência..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-[#0e4c85] focus:outline-none py-1 bg-transparent text-base">
+                                <input type="text" value="${group.referencia}" onchange="updateReferenciaGroup(${JSON.stringify(group.originalIds)}, this.value)" placeholder="Indique a referência..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-[#0e4c85] focus:outline-none py-1 bg-transparent text-base">
                             </div>
                             <div>
                                 <label class="text-xs font-bold uppercase tracking-wider text-[#0e4c85]">Nome da Peça</label>
-                                <input type="text" value="${group.peca || ''}" onchange="updatePecaGroup(${JSON.stringify(group.originalIndices)}, this.value)" placeholder="Indique o nome da peça..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-[#0e4c85] focus:outline-none py-1 bg-transparent text-base">
+                                <input type="text" value="${group.peca || ''}" onchange="updatePecaGroup(${JSON.stringify(group.originalIds)}, this.value)" placeholder="Indique o nome da peça..." class="w-full font-semibold text-gray-800 border-b border-transparent hover:border-gray-300 focus:border-[#0e4c85] focus:outline-none py-1 bg-transparent text-base">
                             </div>
                         </div>
                         <div class="flex items-center gap-1 shrink-0 mt-5">
-                            <button onclick="addPista(${primaryIndex})" class="text-xs bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-[#0e4c85] px-2.5 py-1.5 rounded-md font-medium transition flex items-center gap-1">
+                            <button onclick="addPista('${primaryId}')" class="text-xs bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-[#0e4c85] px-2.5 py-1.5 rounded-md font-medium transition flex items-center gap-1">
                                 <i class="fa-solid fa-location-dot"></i> + Pista
                             </button>
                             ${removeButtonHTML}
@@ -239,39 +325,53 @@
                     
                     <div class="mt-3">
                         <label class="text-xs font-semibold uppercase tracking-wider text-gray-400 block mb-1">Notas adicionais</label>
-                        <input type="text" value="${combinedNotes}" onchange="updateNotasGroup(${JSON.stringify(group.originalIndices)}, this.value)" placeholder="Adicionar comentário ou nota..." class="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#0e4c85]">
+                        <input type="text" value="${combinedNotes}" onchange="updateNotasGroup(${JSON.stringify(group.originalIds)}, this.value)" placeholder="Adicionar comentário ou nota..." class="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[#0e4c85]">
                     </div>
                 `;
                 container.appendChild(card);
             });
         }
 
-        function updateReferenciaGroup(indices, value) {
-            indices.forEach(idx => {
-                if (data[idx]) data[idx].referencia = value;
-            });
-        }
-
-        function updatePecaGroup(indices, value) {
-            indices.forEach(idx => {
-                if (data[idx]) data[idx].peca = value;
-            });
-        }
-
-        function updateNotasGroup(indices, value) {
-            indices.forEach((idx, i) => {
-                if (data[idx]) {
-                    data[idx].notas = (i === 0) ? value : "";
+        function updateReferenciaGroup(ids, value) {
+            ids.forEach(id => {
+                const item = data.find(d => d.id == id);
+                if (item) {
+                    item.referencia = value;
+                    saveDataToDB(item);
                 }
             });
         }
 
-        function updateStatus(itemIdx, pistaIdx, status) {
-            data[itemIdx].pistas[pistaIdx].status = status;
-            render();
+        function updatePecaGroup(ids, value) {
+            ids.forEach(id => {
+                const item = data.find(d => d.id == id);
+                if (item) {
+                    item.peca = value;
+                    saveDataToDB(item);
+                    savePecaToCatalog(item.referencia, value);
+                }
+            });
         }
 
-        function addPista(itemIdx) {
+        function updateNotasGroup(ids, value) {
+            ids.forEach((id, i) => {
+                const item = data.find(d => d.id == id);
+                if (item) {
+                    item.notas = (i === 0) ? value : "";
+                    saveDataToDB(item);
+                }
+            });
+        }
+
+        function updateStatus(itemId, pistaIdx, status) {
+            const item = data.find(d => d.id == itemId);
+            if (item && item.pistas[pistaIdx]) {
+                item.pistas[pistaIdx].status = status;
+                saveDataToDB(item, () => render());
+            }
+        }
+
+        function addPista(itemId) {
             const pistaNome = prompt("Indique a pista (ex: F28):");
             if (!pistaNome) return;
             const qtdStr = prompt("Indique a quantidade:", "10");
@@ -289,36 +389,48 @@
                 status = unidade === "paletes" ? "triadas" : "triados";
             }
 
-            if (!data[itemIdx].pistas) {
-                data[itemIdx].pistas = [];
-            }
-            data[itemIdx].pistas.push({
-                pista: pistaNome.toUpperCase(),
-                quantidade: qtd,
-                unidade: unidade,
-                status: status
-            });
-            render();
-        }
-
-        function removePista(itemIdx, pistaIdx) {
-            data[itemIdx].pistas.splice(pistaIdx, 1);
-            render();
-        }
-
-        function removeItem(itemIdx) {
-            if (confirm("Deseja eliminar este registo por completo?")) {
-                data.splice(itemIdx, 1);
-                render();
-            }
-        }
-
-        function removeGroup(indices) {
-            if (confirm("Deseja eliminar estes registos por completo?")) {
-                indices.sort((a, b) => b - a).forEach(idx => {
-                    data.splice(idx, 1);
+            const item = data.find(d => d.id == itemId);
+            if (item) {
+                if (!item.pistas) item.pistas = [];
+                item.pistas.push({
+                    pista: pistaNome.toUpperCase(),
+                    quantidade: qtd,
+                    unidade: unidade,
+                    status: status
                 });
-                render();
+                saveDataToDB(item, () => render());
+            }
+        }
+
+        function removePista(itemId, pistaIdx) {
+            const item = data.find(d => d.id == itemId);
+            if (item && item.pistas) {
+                item.pistas.splice(pistaIdx, 1);
+                saveDataToDB(item, () => render());
+            }
+        }
+
+        function removeItem(itemId) {
+            if (confirm("Deseja eliminar este registo por completo?")) {
+                deleteDataFromDB(itemId, () => {
+                    data = data.filter(d => d.id != itemId);
+                    render();
+                });
+            }
+        }
+
+        function removeGroup(ids) {
+            if (confirm("Deseja eliminar estes registos por completo?")) {
+                let completed = 0;
+                ids.forEach(id => {
+                    deleteDataFromDB(id, () => {
+                        completed++;
+                        if (completed === ids.length) {
+                            data = data.filter(d => !ids.includes(d.id));
+                            render();
+                        }
+                    });
+                });
             }
         }
 
@@ -326,44 +438,58 @@
             const ref = prompt("Indique a Referência:");
             if (!ref) return;
 
-            const peca = prompt("Indique o nome da peça associada:", "") || "";
-
-            const pistasList = [];
-            const pistaNome = prompt("Indique a pista (ex: F28):");
-            if (pistaNome) {
-                const qtdStr = prompt("Indique a quantidade:", "10");
-                const qtd = parseInt(qtdStr) || 0;
-                
-                const unidadeChoice = prompt("Escolha a unidade:\n1 - contentores\n2 - paletes", "1");
-                let unidade = "contentores";
-                if (unidadeChoice === "2" || unidadeChoice?.toLowerCase().includes("palete")) {
-                    unidade = "paletes";
+            getPecaFromCatalog(ref, function(suggestedPeca) {
+                let pecaPromptMsg = "Indique o nome da peça associada:";
+                if (suggestedPeca) {
+                    pecaPromptMsg = `Referência já conhecida.\nIndique o nome da peça associada:`;
                 }
 
-                const statusChoice = prompt("Estado da pista:\n1 - Por triar 🚫\n2 - Triados(as) ✅", "1");
-                let status = "por_triar";
-                if (statusChoice === "2" || statusChoice?.toLowerCase().includes("triado") || statusChoice?.toLowerCase().includes("triada")) {
-                    status = unidade === "paletes" ? "triadas" : "triados";
+                const peca = prompt(pecaPromptMsg, suggestedPeca) || "";
+                if (peca) {
+                    savePecaToCatalog(ref, peca);
                 }
 
-                pistasList.push({
-                    pista: pistaNome.toUpperCase(),
-                    quantidade: qtd,
-                    unidade: unidade,
-                    status: status
+                const pistasList = [];
+                const pistaNome = prompt("Indique a pista (ex: F28):");
+                if (pistaNome) {
+                    const qtdStr = prompt("Indique a quantidade:", "10");
+                    const qtd = parseInt(qtdStr) || 0;
+                    
+                    const unidadeChoice = prompt("Escolha a unidade:\n1 - contentores\n2 - paletes", "1");
+                    let unidade = "contentores";
+                    if (unidadeChoice === "2" || unidadeChoice?.toLowerCase().includes("palete")) {
+                        unidade = "paletes";
+                    }
+
+                    const statusChoice = prompt("Estado da pista:\n1 - Por triar 🚫\n2 - Triados(as) ✅", "1");
+                    let status = "por_triar";
+                    if (statusChoice === "2" || statusChoice?.toLowerCase().includes("triado") || statusChoice?.toLowerCase().includes("triada")) {
+                        status = unidade === "paletes" ? "triadas" : "triados";
+                    }
+
+                    pistasList.push({
+                        pista: pistaNome.toUpperCase(),
+                        quantidade: qtd,
+                        unidade: unidade,
+                        status: status
+                    });
+                }
+
+                const notas = prompt("Indique notas adicionais (opcional):", "") || "";
+
+                const newItem = {
+                    id: Date.now().toString(),
+                    referencia: ref.trim(),
+                    peca: peca.trim(),
+                    pistas: pistasList,
+                    notas: notas.trim()
+                };
+
+                saveDataToDB(newItem, () => {
+                    data.push(newItem);
+                    render();
                 });
-            }
-
-            const notas = prompt("Indique notas adicionais (opcional):", "") || "";
-
-            data.push({
-                id: Date.now(),
-                referencia: ref,
-                peca: peca,
-                pistas: pistasList,
-                notas: notas
             });
-            render();
         }
 
         function openTutorial() {
@@ -418,8 +544,8 @@
             });
         }
 
-        // Initial render on load
-        render();
+        // Initial setup on load
+        initDB();
     </script>
 </body>
 </html>
